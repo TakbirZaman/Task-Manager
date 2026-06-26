@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Color tokens: a paper ledger, not a SaaS dashboard. */
+  --color-paper: #FAF9F6;
+  --color-surface: #FFFFFF;
+  --color-ink: #1C1B1A;
+  --color-ink-muted: #6B6863;
+  --color-line: #E4E1DA;
+  --color-forest: #2C5A4D;
+  --color-forest-dark: #1F4338;
+  --color-brick: #B23A2E;
+  --color-amber: #A6790A;
+  --color-sage: #5F7D63;
+
+  --font-display: 'Fraunces', serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  /* Visible focus ring everywhere, including custom controls. */
+  :focus-visible {
+    outline: 2px solid var(--color-forest);
+    outline-offset: 2px;
+  }
+}
+
+/* Signature element: a hand-drawn checkmark that draws itself in when a
+   task is marked complete, instead of a generic instant checkbox tick. */
+.check-stroke {
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+  transition: stroke-dashoffset 0.35s ease;
+}
+
+.check-stroke.is-checked {
+  stroke-dashoffset: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-stroke {
+    transition: none;
+  }
+}
