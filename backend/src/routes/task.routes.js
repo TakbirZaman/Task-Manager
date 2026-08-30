@@ -36,9 +36,9 @@ router.get(
   getTasks
 );
 
-router.get('/stats', validate, getStats);
+router.get('/stats', getStats);
 
-router.get('/export', validate, exportTasks);
+router.get('/export', exportTasks);
 
 router.get('/:id', [param('id').isInt().withMessage('Invalid task id.')], validate, getTaskById);
 
