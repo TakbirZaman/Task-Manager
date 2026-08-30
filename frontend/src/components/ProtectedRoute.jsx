@@ -8,8 +8,8 @@ export default function ProtectedRoute({ children }) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-paper">
-        <p className="font-mono text-sm text-ink-muted">Checking your session…</p>
+      <div className="flex min-h-screen items-center justify-center bg-void">
+        <p className="font-mono text-sm text-ghost">Checking your session…</p>
       </div>
     );
   }

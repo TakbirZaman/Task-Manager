@@ -287,5 +287,6 @@
   .btn-glow {
     animation: none !important;
     transition: none !important;
+    opacity: 1 !important;
   }
 }
