@@ -57,13 +57,12 @@ async function setup() {
   }
 }
 
-setup()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`API running on http://localhost:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`API running on http://localhost:${PORT}`);
+
+  setup()
+    .then(() => console.log('Database setup complete.'))
+    .catch((err) => {
+      console.error('Database setup failed (server still running):', err.message);
     });
-  })
-  .catch((err) => {
-    console.error('Setup failed:', err.message);
-    process.exit(1);
-  });
+});
