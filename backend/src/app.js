@@ -8,7 +8,7 @@ const rateLimit = require('express-rate-limit');
 
 const authRoutes = require('./routes/auth.routes');
 const taskRoutes = require('./routes/task.routes');
-const { notFound, errorHandler } = require('./middleware/error.middleware');
+const { notFound, jsonErrorHandler, errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
@@ -25,6 +25,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(jsonErrorHandler);
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));

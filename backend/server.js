@@ -1,6 +1,6 @@
 require('dotenv').config();
 const app = require('./src/app');
-const pool = require('./src/config/db');
+const { query, close } = require('./src/config/db');
 const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -10,7 +10,10 @@ const PORT = process.env.PORT || 5000;
 async function setup() {
   const schemaPath = path.join(__dirname, 'src/db/schema.sql');
   const sql = fs.readFileSync(schemaPath, 'utf8');
-  await pool.query(sql);
+  const statements = sql.split(';').filter(s => s.trim());
+  for (const stmt of statements) {
+    query(stmt);
+  }
   console.log('Migration complete.');
 
   const users = [
@@ -32,11 +35,11 @@ async function setup() {
   ];
 
   for (const u of users) {
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [u.email]);
+    const existing = query('SELECT id FROM users WHERE email = $1', [u.email]);
     if (existing.rows.length > 0) continue;
 
-    const hash = await bcrypt.hash(u.password, 10);
-    const result = await pool.query(
+    const hash = bcrypt.hashSync(u.password, 10);
+    const result = query(
       `INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id`,
       [u.name, u.email, hash]
     );
@@ -47,7 +50,7 @@ async function setup() {
       : sampleTasks.filter((_, i) => i % 2 === 1);
 
     for (const t of userTasks) {
-      await pool.query(
+      query(
         `INSERT INTO tasks (user_id, title, description, status, priority, due_date)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [userId, t.title, t.description, t.status, t.priority, t.due_date]
@@ -60,9 +63,10 @@ async function setup() {
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
 
-  setup()
-    .then(() => console.log('Database setup complete.'))
-    .catch((err) => {
-      console.error('Database setup failed (server still running):', err.message);
-    });
+  try {
+    setup();
+    console.log('Database setup complete.');
+  } catch (err) {
+    console.error('Database setup failed (server still running):', err.message);
+  }
 });

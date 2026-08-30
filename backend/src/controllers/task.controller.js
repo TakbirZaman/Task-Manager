@@ -1,8 +1,4 @@
-// backend/src/controllers/task.controller.js
-// Every query is scoped to req.user.id (set by the auth middleware) so one
-// user can never read, edit, or delete another user's tasks.
-
-const pool = require('../config/db');
+const db = require('../config/db');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
 
@@ -14,9 +10,6 @@ const SORTABLE_FIELDS = {
   status: "CASE status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END",
 };
 
-const STATUS_VALUES = ['pending', 'in_progress', 'completed'];
-
-// GET /api/tasks?status=pending&priority=high&search=report&sort_by=created_at&sort_order=desc
 const getTasks = asyncHandler(async (req, res) => {
   const { status, priority, search, sort_by, sort_order } = req.query;
 
@@ -35,7 +28,7 @@ const getTasks = asyncHandler(async (req, res) => {
 
   if (search) {
     values.push(`%${search}%`);
-    conditions.push(`title ILIKE $${values.length}`);
+    conditions.push(`title LIKE $${values.length}`);
   }
 
   const orderColumn = SORTABLE_FIELDS[sort_by] || 'created_at';
@@ -48,13 +41,12 @@ const getTasks = asyncHandler(async (req, res) => {
     ORDER BY ${orderColumn} ${orderDir}, created_at DESC
   `;
 
-  const result = await pool.query(query, values);
+  const result = db.query(query, values);
   res.json({ tasks: result.rows });
 });
 
-// GET /api/tasks/:id
 const getTaskById = asyncHandler(async (req, res) => {
-  const result = await pool.query(
+  const result = db.query(
     `SELECT id, title, description, status, priority, due_date, created_at, updated_at
      FROM tasks WHERE id = $1 AND user_id = $2`,
     [req.params.id, req.user.id]
@@ -67,11 +59,10 @@ const getTaskById = asyncHandler(async (req, res) => {
   res.json({ task: result.rows[0] });
 });
 
-// POST /api/tasks
 const createTask = asyncHandler(async (req, res) => {
   const { title, description, status, priority, due_date } = req.body;
 
-  const result = await pool.query(
+  const result = db.query(
     `INSERT INTO tasks (user_id, title, description, status, priority, due_date)
      VALUES ($1, $2, $3, COALESCE($4, 'pending'), COALESCE($5, 'medium'), $6)
      RETURNING id, title, description, status, priority, due_date, created_at, updated_at`,
@@ -81,12 +72,9 @@ const createTask = asyncHandler(async (req, res) => {
   res.status(201).json({ task: result.rows[0] });
 });
 
-// PATCH /api/tasks/:id
 const updateTask = asyncHandler(async (req, res) => {
   const { title, description, status, priority, due_date } = req.body;
 
-  // Build the SET clause dynamically so a partial body (e.g. just
-  // { status: 'completed' }) only touches the fields actually sent.
   const fields = [];
   const values = [];
 
@@ -116,7 +104,7 @@ const updateTask = asyncHandler(async (req, res) => {
     RETURNING id, title, description, status, priority, due_date, created_at, updated_at
   `;
 
-  const result = await pool.query(query, values);
+  const result = db.query(query, values);
 
   if (result.rows.length === 0) {
     throw new ApiError(404, 'Task not found.');
@@ -125,40 +113,37 @@ const updateTask = asyncHandler(async (req, res) => {
   res.json({ task: result.rows[0] });
 });
 
-// DELETE /api/tasks/:id
 const deleteTask = asyncHandler(async (req, res) => {
-  const result = await pool.query(
+  const result = db.query(
     'DELETE FROM tasks WHERE id = $1 AND user_id = $2 RETURNING id',
     [req.params.id, req.user.id]
   );
 
-  if (result.rows.length === 0) {
+  if (result.rowCount === 0) {
     throw new ApiError(404, 'Task not found.');
   }
 
   res.status(204).send();
 });
 
-// GET /api/tasks/stats
 const getStats = asyncHandler(async (req, res) => {
-  const result = await pool.query(
-    `SELECT
-       COUNT(*)::int                                           AS total,
-       COUNT(*) FILTER (WHERE status = 'pending')::int         AS pending,
-       COUNT(*) FILTER (WHERE status = 'in_progress')::int     AS in_progress,
-       COUNT(*) FILTER (WHERE status = 'completed')::int       AS completed,
-       COUNT(*) FILTER (
-         WHERE status != 'completed' AND due_date < CURRENT_DATE
-       )::int                                                  AS overdue
-     FROM tasks
-     WHERE user_id = $1`,
-    [req.user.id]
-  );
+  const total = db.query('SELECT COUNT(*) as total FROM tasks WHERE user_id = $1', [req.user.id]);
+  const pending = db.query("SELECT COUNT(*) as count FROM tasks WHERE user_id = $1 AND status = 'pending'", [req.user.id]);
+  const inProgress = db.query("SELECT COUNT(*) as count FROM tasks WHERE user_id = $1 AND status = 'in_progress'", [req.user.id]);
+  const completed = db.query("SELECT COUNT(*) as count FROM tasks WHERE user_id = $1 AND status = 'completed'", [req.user.id]);
+  const overdue = db.query("SELECT COUNT(*) as count FROM tasks WHERE user_id = $1 AND status != 'completed' AND due_date < date('now')", [req.user.id]);
 
-  res.json({ stats: result.rows[0] });
+  res.json({
+    stats: {
+      total: total.rows[0].total,
+      pending: pending.rows[0].count,
+      in_progress: inProgress.rows[0].count,
+      completed: completed.rows[0].count,
+      overdue: overdue.rows[0].count,
+    },
+  });
 });
 
-// GET /api/tasks/export?status=&priority=&search=
 const exportTasks = asyncHandler(async (req, res) => {
   const { status, priority, search } = req.query;
 
@@ -177,7 +162,7 @@ const exportTasks = asyncHandler(async (req, res) => {
 
   if (search) {
     values.push(`%${search}%`);
-    conditions.push(`title ILIKE $${values.length}`);
+    conditions.push(`title LIKE $${values.length}`);
   }
 
   const query = `
@@ -187,7 +172,7 @@ const exportTasks = asyncHandler(async (req, res) => {
     ORDER BY created_at DESC
   `;
 
-  const result = await pool.query(query, values);
+  const result = db.query(query, values);
   const tasks = result.rows;
 
   const header = 'title,status,priority,due_date,created_at\n';

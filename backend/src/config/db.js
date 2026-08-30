@@ -1,30 +1,43 @@
-// backend/src/config/db.js
-// Single shared connection pool for the whole app. Every query goes
-// through here so connections are reused instead of opened per-request.
+const Database = require('better-sqlite3');
+const path = require('path');
 
-const { Pool } = require('pg');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data.db');
+const db = new Database(DB_PATH);
 
-const pool = new Pool(
-  process.env.DATABASE_URL
-    ? {
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 10000,
-      }
-    : {
-        host: process.env.PGHOST,
-        port: Number(process.env.PGPORT) || 5432,
-        user: process.env.PGUSER,
-        password: process.env.PGPASSWORD,
-        database: process.env.PGDATABASE,
-        connectionTimeoutMillis: 10000,
-      }
-);
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
-pool.on('error', (err) => {
-  // Catches errors on idle clients (e.g. DB restarted) so a single bad
-  // connection can't crash the whole process.
-  console.error('Unexpected PostgreSQL pool error:', err.message);
-});
+function query(sql, params = []) {
+  const placeholders = [];
+  let i = 0;
+  const converted = sql.replace(/\$(\d+)/g, (_, num) => {
+    placeholders.push(params[Number(num) - 1] ?? null);
+    return '?';
+  });
 
-module.exports = pool;
+  const stmt = db.prepare(converted);
+  const lower = converted.trim().toUpperCase();
+
+  if (lower.startsWith('SELECT') || lower.startsWith('WITH')) {
+    return { rows: stmt.all(...placeholders), rowCount: stmt.all(...placeholders).length };
+  }
+
+  if (lower.startsWith('INSERT') && converted.toUpperCase().includes('RETURNING')) {
+    const insertSql = converted.replace(/RETURNING\s+.+$/i, '');
+    const insertStmt = db.prepare(insertSql);
+    const info = insertStmt.run(...placeholders);
+    const selectStmt = db.prepare('SELECT * FROM users WHERE id = ?');
+    const row = selectStmt.get(info.lastInsertRowid);
+    if (row) return { rows: [row], rowCount: 1 };
+    return { rows: [{ id: info.lastInsertRowid }], rowCount: 1 };
+  }
+
+  const info = stmt.run(...placeholders);
+  return { rows: [], rowCount: info.changes };
+}
+
+function close() {
+  db.close();
+}
+
+module.exports = { query, close, db };
