@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../api/getErrorMessage';
+import ProjectInfoModal from '../components/ProjectInfoModal';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -120,7 +122,22 @@ export default function LoginPage() {
             Create an account
           </Link>
         </p>
+
+        <div className="mt-5 flex justify-center animate-fade-in-up delay-6">
+          <button
+            type="button"
+            onClick={() => setShowInfo(true)}
+            className="group flex items-center gap-2 rounded-lg border border-mist/40 px-3.5 py-2 text-xs font-medium text-ghost transition-all duration-300 hover:border-aurora/40 hover:text-snow"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Project info
+          </button>
+        </div>
       </div>
+
+      <ProjectInfoModal open={showInfo} onClose={() => setShowInfo(false)} />
     </div>
   );
 }
